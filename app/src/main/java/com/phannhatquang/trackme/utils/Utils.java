@@ -63,5 +63,21 @@ public class Utils {
         Log.d("TRACK_ME", "DISTANCE: " + String.valueOf(locationA.distanceTo(locationB)));
         return locationA.distanceTo(locationB);
     }
+
+    public static float distance (LatLng a, LatLng b )
+    {
+        double earthRadius = 3958.75;
+        double latDiff = Math.toRadians(b.latitude -a.latitude);
+        double lngDiff = Math.toRadians(b.longitude-a.longitude);
+        double _a = Math.sin(latDiff /2) * Math.sin(latDiff /2) +
+                Math.cos(Math.toRadians(a.latitude)) * Math.cos(Math.toRadians(b.latitude)) *
+                        Math.sin(lngDiff /2) * Math.sin(lngDiff /2);
+        double c = 2 * Math.atan2(Math.sqrt(_a), Math.sqrt(1-_a));
+        double distance = earthRadius * c;
+
+        int meterConversion = 1609;
+        Log.d("TRACK_ME", "DISTANCE: " +new Float(distance * meterConversion).floatValue());
+        return new Float(distance * meterConversion).floatValue();
+    }
 }
 

@@ -195,7 +195,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
                     _listLocation.add(new LatLng(location.latitude, location.longitude));
                     if (_listLocation.size() > 1) {
-                        distance += Utils.calculateDistance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1));
+                        Log.d("TRACK_ME", "DISTANCE " + Utils.distance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1)));
+                        distance += Utils.distance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1));
                     }
                 }
 
@@ -380,7 +381,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void _calculateDistance() {
-        distance += Utils.calculateDistance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1));
+        distance += Utils.distance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1));
         tvDistance.setText(String.format("%.2f", distance) + " m");
     }
 
