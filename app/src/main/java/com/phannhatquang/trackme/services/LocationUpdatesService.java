@@ -42,6 +42,9 @@ import com.phannhatquang.trackme.utils.Utils;
 import org.androidannotations.annotations.EService;
 import org.androidannotations.annotations.sharedpreferences.Pref;
 
+import java.util.Timer;
+import java.util.TimerTask;
+
 /**
  * A bound and started service that is promoted to a foreground service when location updates have
  * been requested and all clients unbind.
@@ -70,8 +73,10 @@ public class LocationUpdatesService extends Service {
     private static final String CHANNEL_ID = "channel_01";
 
     public static final String ACTION_BROADCAST = PACKAGE_NAME + ".broadcast";
+    public static final String ACTION_BROADCAST_TIME = PACKAGE_NAME + ".broadcast.time";
 
     public static final String EXTRA_LOCATION = PACKAGE_NAME + ".location";
+    public static final String EXTRA_TIME = PACKAGE_NAME + ".time";
     private static final String EXTRA_STARTED_FROM_NOTIFICATION = PACKAGE_NAME +
             ".started_from_notification";
 
@@ -80,7 +85,7 @@ public class LocationUpdatesService extends Service {
     /**
      * The desired interval for location updates. Inexact. Updates may be more or less frequent.
      */
-    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 10000;
+    private static final long UPDATE_INTERVAL_IN_MILLISECONDS = 1000;
 
     /**
      * The fastest rate for active location updates. Updates will never be more frequent
@@ -129,7 +134,8 @@ public class LocationUpdatesService extends Service {
     @Pref
     SharePref_ mSharePref;
 
-
+    Timer timer = new Timer();
+    int count = 0;
 
     @Override
     public void onCreate() {
@@ -231,6 +237,7 @@ public class LocationUpdatesService extends Service {
      * {@link SecurityException}.
      */
     public void requestLocationUpdates() {
+
         Log.i(TAG, "Requesting location updates");
         Utils.setRequestingLocationUpdates(this, true);
         startService(new Intent(getApplicationContext(), LocationUpdatesService_.class));
@@ -243,12 +250,30 @@ public class LocationUpdatesService extends Service {
         }
     }
 
+    public void requestLocationUpdates(boolean isStartTimer) {
+        if (timer != null) {
+            timer.cancel();
+            timer.purge();
+            count = 0;
+            timer = null;
+        }
+        checkTimer();
+        requestLocationUpdates();
+    }
+
     /**
      * Removes location updates. Note that in this sample we merely log the
      * {@link SecurityException}.
      */
     public void removeLocationUpdates() {
         Log.i(TAG, "Removing location updates");
+        if (timer != null) {
+            timer.cancel();
+            timer.purge();
+            count = 0;
+            timer = null;
+        }
+
         try {
             mFusedLocationClient.removeLocationUpdates(mLocationCallback);
             Utils.setRequestingLocationUpdates(this, false);
@@ -317,6 +342,22 @@ public class LocationUpdatesService extends Service {
         }
     }
 
+    private void checkTimer() {
+        if (timer == null) {
+            timer = new Timer();
+            timer.scheduleAtFixedRate(new TimerTask() {
+                @Override
+                public void run() {
+                    count++;
+                    // Notify anyone listening for broadcasts about the new location.
+                    Intent intent = new Intent(ACTION_BROADCAST_TIME);
+                    intent.putExtra(EXTRA_TIME, count);
+                    LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
+                }
+            }, 1000, 1000);
+        }
+    }
+
     private void onNewLocation(final Location location) {
         Log.i(TAG, "New location: " + location);
 
@@ -326,11 +367,12 @@ public class LocationUpdatesService extends Service {
         Intent intent = new Intent(ACTION_BROADCAST);
         intent.putExtra(EXTRA_LOCATION, location);
         LocalBroadcastManager.getInstance(getApplicationContext()).sendBroadcast(intent);
+        checkTimer();
 
         AsyncTask.execute(new Runnable() {
             @Override
             public void run() {
-               String sessionID = mSharePref.currentSessionID().getOr("");
+                String sessionID = mSharePref.currentSessionID().getOr("");
                 if (!TextUtils.isEmpty(sessionID)) {
                     final MyLocation _location = new MyLocation();
                     _location.latitude = location.getLatitude();

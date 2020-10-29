@@ -18,8 +18,8 @@ public interface LocatioinDAO {
     List<MyLocation> loadAllBySessionIds(String sessionID);
 
     @Insert
-    void insertAll(MyLocation... users);
+    void insertAll(MyLocation... locations);
 
     @Delete
-    void delete(MyLocation user);
+    void delete(MyLocation location);
 }

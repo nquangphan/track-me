@@ -137,7 +137,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     protected void afterViews() {
 
         myReceiver = new MyReceiver();
-//        setContentView(R.layout.activity_maps);
         // Obtain the SupportMapFragment and get notified when the map is ready to be used.
         SupportMapFragment mapFragment = (SupportMapFragment) getSupportFragmentManager()
                 .findFragmentById(R.id.map);
@@ -151,7 +150,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     Manifest.permission.ACCESS_FINE_LOCATION, true);
         }
 
-        setupButtonState();
+
     }
 
     @Override
@@ -167,13 +166,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 break;
             case AppState.RUNNING: {
                 _enablePause();
-                Log.d("TRACK_ME", "RUNNINGGGGGGG");
                 _loadRunningStateFromLocalDatabase();
                 break;
             }
             case AppState.PAUSE: {
                 _enablePauseSession();
-                Log.d("TRACK_ME", "PAUSEEEEEEEEE");
                 _loadRunningStateFromLocalDatabase();
                 break;
             }
@@ -181,27 +178,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void _loadRunningStateFromLocalDatabase() {
-        AsyncTask.execute(new Runnable() {
-            @Override
-            public void run() {
-                String sessionID = mSharePref.currentSessionID().getOr("");
-                List<MyLocation> lastLocations = TrackMeApplication.getInstance()
-                        .getAppDatabase()
-                        .userDao()
-                        .loadAllBySessionIds(sessionID);
-                Log.d("TRACK_ME", lastLocations.toString());
-                for (MyLocation location : lastLocations
-                ) {
-
-                    _listLocation.add(new LatLng(location.latitude, location.longitude));
-                    if (_listLocation.size() > 1) {
-                        Log.d("TRACK_ME", "DISTANCE " + Utils.distance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1)));
-                        distance += Utils.distance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1));
-                    }
-                }
-
-            }
-        });
+        _listLocation.clear();
+        new GetDataBaseTask().execute();
     }
 
     @Override
@@ -218,6 +196,30 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         super.onResume();
         LocalBroadcastManager.getInstance(this).registerReceiver(myReceiver,
                 new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST));
+        LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
+                                                                     @Override
+                                                                     public void onReceive(Context context, Intent intent) {
+                                                                         int timer = intent.getIntExtra(LocationUpdatesService_.EXTRA_TIME, 0);
+                                                                         _setTimerUI(timer);
+                                                                     }
+                                                                 },
+                new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST_TIME));
+        _clearMap();
+        setupButtonState();
+    }
+
+    private void _setTimerUI(long timer) {
+        int hours = (int) timer / 3600;
+        int remainder = (int) timer - hours * 3600;
+        int mins = remainder / 60;
+        remainder = remainder - mins * 60;
+        int secs = remainder;
+
+        tvTime.setText(timeToString(hours) + ":" + timeToString(mins) + ":" + timeToString(secs));
+    }
+
+    String timeToString(int time) {
+        return time > 9 ? String.valueOf(time) : "0" + time;
     }
 
     @Override
@@ -251,7 +253,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     public void onMapReady(GoogleMap googleMap) {
         mMap = googleMap;
-
 
         mMap.setOnMyLocationButtonClickListener(this);
         mMap.setOnMyLocationClickListener(this);
@@ -348,15 +349,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 }
 
                 if (!_isReceiveLocation) {
-//                    UUID.randomUUID();
                     _isReceiveLocation = true;
-
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(_myLocation, 19));
                     if (mSharePref.currentState().getOr(0) != AppState.RUNNING) {
                         mService.removeLocationUpdates();
                     }
-                    _drawOldSession();
-
                 } else {
                     if (_listLocation.size() > 0) {
                         if (_listLocation.size() == 1 && mSharePref.currentState().getOr(0) == AppState.RUNNING) {
@@ -381,7 +378,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void _calculateDistance() {
-        distance += Utils.distance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1));
+        distance += Utils.calculateDistance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 2));
         tvDistance.setText(String.format("%.2f", distance) + " m");
     }
 
@@ -425,6 +422,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         btnPause.setVisibility(View.GONE);
         tvDistance.setText("0.0 m");
         tvSpeed.setText("0 km/h");
+        tvTime.setText("--:--:--");
     }
 
     void _clearMap() {
@@ -441,7 +439,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mSharePref.currentSessionID().put(String.valueOf(UUID.randomUUID()));
         mSharePref.currentState().put(AppState.RUNNING);
         if (mService != null) {
-            mService.requestLocationUpdates();
+            mService.requestLocationUpdates(true);
             _enablePause();
         }
     }
@@ -469,5 +467,40 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mSharePref.currentState().put(AppState.PAUSE);
         mService.removeLocationUpdates();
         _enablePauseSession();
+    }
+
+
+    public class GetDataBaseTask<T> extends AsyncTask<Object, Void, T> {
+
+        @Override
+        protected void onPreExecute() {
+
+        }
+
+        @Override
+        protected T doInBackground(Object... objects) {
+            //....
+//            return something;
+            String sessionID = mSharePref.currentSessionID().getOr("");
+            List<MyLocation> lastLocations = TrackMeApplication.getInstance()
+                    .getAppDatabase()
+                    .userDao()
+                    .loadAllBySessionIds(sessionID);
+            Log.d("TRACK_ME", lastLocations.toString());
+            for (MyLocation location : lastLocations
+            ) {
+                _listLocation.add(new LatLng(location.latitude, location.longitude));
+                if (_listLocation.size() > 1) {
+                    Log.d("TRACK_ME", "DISTANCE " + Utils.calculateDistance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 1)));
+                    distance += Utils.calculateDistance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 2));
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(T result) {
+            _drawOldSession();
+        }
     }
 }
