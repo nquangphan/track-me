@@ -66,10 +66,8 @@ public class HistoryAdapter extends RecyclerView.Adapter<HistoryAdapter.ViewHold
         }
 
         public void onBindData(TableSession session) {
-            long yourmilliseconds = System.currentTimeMillis();
             SimpleDateFormat sdf = new SimpleDateFormat("dd/MM/yyyy - HH:mm");
-            Date resultdate = new Date(yourmilliseconds);
-            String date = sdf.format(resultdate);
+            String date = sdf.format(new Date(session.stateDate));
             tvDate.setText(date);
 
 

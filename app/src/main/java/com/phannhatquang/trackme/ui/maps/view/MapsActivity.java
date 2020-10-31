@@ -65,6 +65,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Extra
     String historySessionID;
+    @Extra
+    boolean isStartNewSession;
 
     private GoogleMap mMap;
     /**
@@ -127,7 +129,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         public void onServiceConnected(ComponentName name, IBinder service) {
             LocationUpdatesService_.LocalBinder binder = (LocationUpdatesService_.LocalBinder) service;
             mService = binder.getService();
-            mService.requestLocationUpdates();
+            if(isStartNewSession) {
+                mService.requestLocationUpdates(true);
+            }
 
             mBound = true;
         }
@@ -170,6 +174,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
             _loadRunningStateFromLocalDatabase();
             return;
         }
+
         switch (mSharePref.currentState().getOr(0)) {
             case AppState.IDLE:
                 _enableStartButton();
@@ -215,6 +220,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                                                                          }
                                                                      },
                     new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST_TIME));
+            if (isStartNewSession)
+                onButtonStartClick();
         }
         _clearMap();
         setupButtonState();

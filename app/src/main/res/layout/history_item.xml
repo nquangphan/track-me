@@ -17,6 +17,7 @@
         tools:text="30/10/2020 18:30" />
 
     <LinearLayout
+        android:id="@+id/detail"
         android:layout_marginTop="8dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
@@ -47,5 +48,12 @@
             android:textStyle="bold"
             tools:text="00:12:34" />
     </LinearLayout>
+
+    <View
+        android:layout_marginTop="8dp"
+        android:layout_below="@+id/detail"
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@android:color/darker_gray"/>
 
 </RelativeLayout>

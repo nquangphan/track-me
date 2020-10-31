@@ -1,15 +1,21 @@
 package com.phannhatquang.trackme.ui.maps.view;
 
 import android.Manifest;
+import android.content.BroadcastReceiver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.AsyncTask;
 import android.se.omapi.Session;
 import android.util.Log;
 import android.view.View;
+import android.widget.ImageButton;
 import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
+import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -21,6 +27,7 @@ import com.phannhatquang.trackme.adapter.HistoryAdapter;
 import com.phannhatquang.trackme.data.dao.SessionDAO;
 import com.phannhatquang.trackme.data.model.MyLocation;
 import com.phannhatquang.trackme.data.model.TableSession;
+import com.phannhatquang.trackme.services.LocationUpdatesService_;
 import com.phannhatquang.trackme.utils.AppState;
 import com.phannhatquang.trackme.utils.PermissionUtils;
 import com.phannhatquang.trackme.utils.SharePref_;
@@ -43,6 +50,17 @@ public class MainActivity extends AppCompatActivity {
     @ViewById(R.id.rvHistory)
     RecyclerView rvHistory;
 
+    @ViewById(R.id.btnStart)
+    ImageButton btnStart;
+    @ViewById(R.id.btnPause)
+    ImageButton btnPause;
+    @ViewById(R.id.btnRestart)
+    ImageButton btnRestart;
+    @ViewById(R.id.btnStop)
+    ImageButton btnStop;
+    @ViewById(R.id.lnPause)
+    LinearLayout lnPause;
+
     List<TableSession> sessions;
 
     HistoryAdapter historyAdapter;
@@ -50,9 +68,14 @@ public class MainActivity extends AppCompatActivity {
 
     @AfterViews
     protected void afterViews() {
-        new GetDataBaseTask().execute();
+        _enableStartButton();
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        new GetDataBaseTask().execute();
+    }
 
     private void setupRecycleView() {
 
@@ -130,6 +153,17 @@ public class MainActivity extends AppCompatActivity {
         protected void onPostExecute(T result) {
             notifyDataChange();
         }
+    }
+
+    void _enableStartButton() {
+        btnStart.setVisibility(View.VISIBLE);
+        lnPause.setVisibility(View.GONE);
+        btnPause.setVisibility(View.GONE);
+    }
+
+    @Click(R.id.btnStart)
+    void onButtonStartClick() {
+        MapsActivity_.intent(MainActivity.this).isHistory(false).isStartNewSession(true).start();
     }
 
 }

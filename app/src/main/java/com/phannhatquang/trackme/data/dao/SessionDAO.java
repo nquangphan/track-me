@@ -12,7 +12,7 @@ import java.util.List;
 
 @Dao
 public interface SessionDAO {
-    @Query("SELECT * FROM tablesession")
+    @Query("SELECT * FROM tablesession ORDER BY stateDate DESC")
     List<TableSession> getAll();
 
     @Insert
