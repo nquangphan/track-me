@@ -3,7 +3,6 @@ package com.phannhatquang.trackme.ui.maps.view;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentActivity;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import android.Manifest;
@@ -19,11 +18,8 @@ import android.location.Location;
 import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.IBinder;
-import android.preference.PreferenceManager;
-import android.text.TextUtils;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -40,6 +36,7 @@ import com.google.android.gms.maps.model.PolylineOptions;
 import com.phannhatquang.trackme.R;
 import com.phannhatquang.trackme.TrackMeApplication;
 import com.phannhatquang.trackme.data.model.MyLocation;
+import com.phannhatquang.trackme.data.model.TableSession;
 import com.phannhatquang.trackme.services.LocationUpdatesService;
 import com.phannhatquang.trackme.services.LocationUpdatesService_;
 import com.phannhatquang.trackme.utils.AppState;
@@ -50,16 +47,24 @@ import com.phannhatquang.trackme.utils.Utils;
 import org.androidannotations.annotations.AfterViews;
 import org.androidannotations.annotations.Click;
 import org.androidannotations.annotations.EActivity;
+import org.androidannotations.annotations.Extra;
 import org.androidannotations.annotations.ViewById;
 import org.androidannotations.annotations.sharedpreferences.Pref;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
 @EActivity(R.layout.activity_maps)
 public class MapsActivity extends AppCompatActivity implements OnMapReadyCallback, GoogleMap.OnMyLocationButtonClickListener,
         GoogleMap.OnMyLocationClickListener {
+
+    @Extra
+    boolean isHistory;
+
+    @Extra
+    String historySessionID;
 
     private GoogleMap mMap;
     /**
@@ -84,13 +89,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     // Tracks the bound state of the service.
     private boolean mBound = false;
 
-    private boolean _isReceiveLocation = false;
 
     private Polyline polyline;
 
     private double distance = 0;
+    private long time = 0;
 
     ArrayList<LatLng> _listLocation = new ArrayList<LatLng>();
+    TableSession historySession;
 
     @ViewById(R.id.tvDistance)
     TextView tvDistance;
@@ -150,7 +156,6 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     Manifest.permission.ACCESS_FINE_LOCATION, true);
         }
 
-
     }
 
     @Override
@@ -160,6 +165,11 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     }
 
     private void setupButtonState() {
+        if (isHistory == true) {
+            _enableStartButton();
+            _loadRunningStateFromLocalDatabase();
+            return;
+        }
         switch (mSharePref.currentState().getOr(0)) {
             case AppState.IDLE:
                 _enableStartButton();
@@ -194,21 +204,24 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     @Override
     protected void onResume() {
         super.onResume();
-        LocalBroadcastManager.getInstance(this).registerReceiver(myReceiver,
-                new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST));
-        LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
-                                                                     @Override
-                                                                     public void onReceive(Context context, Intent intent) {
-                                                                         int timer = intent.getIntExtra(LocationUpdatesService_.EXTRA_TIME, 0);
-                                                                         _setTimerUI(timer);
-                                                                     }
-                                                                 },
-                new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST_TIME));
+        if (!isHistory) {
+            LocalBroadcastManager.getInstance(this).registerReceiver(myReceiver,
+                    new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST));
+            LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
+                                                                         @Override
+                                                                         public void onReceive(Context context, Intent intent) {
+                                                                             int timer = intent.getIntExtra(LocationUpdatesService_.EXTRA_TIME, 0);
+                                                                             _setTimerUI(timer);
+                                                                         }
+                                                                     },
+                    new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST_TIME));
+        }
         _clearMap();
         setupButtonState();
     }
 
     private void _setTimerUI(long timer) {
+        this.time = timer;
         int hours = (int) timer / 3600;
         int remainder = (int) timer - hours * 3600;
         int mins = remainder / 60;
@@ -258,9 +271,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mMap.setOnMyLocationClickListener(this);
         enableMyLocation();
         // Add a marker in Sydney and move the camera
-        LatLng sydney = new LatLng(-34, 151);
-        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
-        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
+//        LatLng sydney = new LatLng(-34, 151);
+//        mMap.addMarker(new MarkerOptions().position(sydney).title("Marker in Sydney"));
+//        mMap.moveCamera(CameraUpdateFactory.newLatLng(sydney));
     }
 
     @Override
@@ -348,28 +361,27 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     _listLocation.add(_myLocation);
                 }
 
-                if (!_isReceiveLocation) {
-                    _isReceiveLocation = true;
+                if (_listLocation.size() == 1) {
                     mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(_myLocation, 19));
-                    if (mSharePref.currentState().getOr(0) != AppState.RUNNING) {
+                    if (mSharePref.currentState().getOr(0) == AppState.RUNNING) {
+                        mMap.addMarker(new MarkerOptions()
+                                .position(_listLocation.get(0)).title("Start"));
+                    } else {
                         mService.removeLocationUpdates();
                     }
                 } else {
                     if (_listLocation.size() > 0) {
-                        if (_listLocation.size() == 1 && mSharePref.currentState().getOr(0) == AppState.RUNNING) {
-                            mMap.addMarker(new MarkerOptions()
-                                    .position(_listLocation.get(0)).title("Start"));
-                        } else {
-                            // A geodesic polyline that goes around the world.
-                            polyline = mMap.addPolyline(new PolylineOptions()
-                                    .add(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 2))
-                                    .width(20)
-                                    .color(Color.BLUE)
-                                    .geodesic(true)
-                                    .clickable(false));
-                            _calculateSpeed(location);
-                            _calculateDistance();
-                        }
+
+                        // A geodesic polyline that goes around the world.
+                        polyline = mMap.addPolyline(new PolylineOptions()
+                                .add(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 2))
+                                .width(20)
+                                .color(Color.BLUE)
+                                .geodesic(true)
+                                .clickable(false));
+                        _calculateSpeed(location);
+                        _calculateDistance();
+
                     }
 
                 }
@@ -391,6 +403,14 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         if (_listLocation.size() > 0) {
             mMap.addMarker(new MarkerOptions()
                     .position(_listLocation.get(0)).title("Start"));
+            if (isHistory) {
+                mMap.addMarker(new MarkerOptions()
+                        .position(_listLocation.get(_listLocation.size() - 1)).title("End"));
+                tvSpeed.setText(String.format("%.2f", historySession.speed) + " km/h");
+
+                _setTimerUI(historySession.time);
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(_listLocation.get(0), 19));
+            }
             polyline = mMap.addPolyline(new PolylineOptions()
                     .addAll(_listLocation)
                     .width(20)
@@ -446,6 +466,22 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
 
     @Click(R.id.btnStart)
     void onButtonStartClick() {
+        if (isHistory) {
+            LocalBroadcastManager.getInstance(this).registerReceiver(myReceiver,
+                    new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST));
+            LocalBroadcastManager.getInstance(this).registerReceiver(new BroadcastReceiver() {
+                                                                         @Override
+                                                                         public void onReceive(Context context, Intent intent) {
+                                                                             int timer = intent.getIntExtra(LocationUpdatesService_.EXTRA_TIME, 0);
+                                                                             _setTimerUI(timer);
+                                                                         }
+                                                                     },
+                    new IntentFilter(LocationUpdatesService_.ACTION_BROADCAST_TIME));
+
+            isHistory = false;
+            historySessionID = "";
+            _enableStartButton();
+        }
         startSession();
     }
 
@@ -466,6 +502,21 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
     void onButtonPauseClick() {
         mSharePref.currentState().put(AppState.PAUSE);
         mService.removeLocationUpdates();
+        final TableSession session = new TableSession();
+        session.distance = distance;
+        session.time = this.time;
+        session.speed = (distance / 1000) / (this.time / 3600.0);
+        session.id = mSharePref.currentSessionID().getOr("");
+        long now = System.currentTimeMillis();
+        session.stateDate = now - this.time;
+        AsyncTask.execute(new Runnable() {
+            @Override
+            public void run() {
+                TrackMeApplication.getInstance()
+                        .getAppDatabase().sessionDAO().insertAll(session);
+            }
+        });
+
         _enablePauseSession();
     }
 
@@ -480,11 +531,18 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         @Override
         protected T doInBackground(Object... objects) {
             //....
-//            return something;
-            String sessionID = mSharePref.currentSessionID().getOr("");
+            String sessionID;
+            if (isHistory) {
+                sessionID = historySessionID;
+                historySession = TrackMeApplication.getInstance()
+                        .getAppDatabase()
+                        .sessionDAO().loadSessionByID(sessionID);
+            } else {
+                sessionID = mSharePref.currentSessionID().getOr("");
+            }
             List<MyLocation> lastLocations = TrackMeApplication.getInstance()
                     .getAppDatabase()
-                    .userDao()
+                    .locationDao()
                     .loadAllBySessionIds(sessionID);
             Log.d("TRACK_ME", lastLocations.toString());
             for (MyLocation location : lastLocations
@@ -495,6 +553,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                     distance += Utils.calculateDistance(_listLocation.get(_listLocation.size() - 1), _listLocation.get(_listLocation.size() - 2));
                 }
             }
+
             return null;
         }
 

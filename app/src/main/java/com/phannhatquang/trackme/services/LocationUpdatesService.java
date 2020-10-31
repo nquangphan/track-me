@@ -378,7 +378,7 @@ public class LocationUpdatesService extends Service {
                     _location.latitude = location.getLatitude();
                     _location.longitude = location.getLongitude();
                     _location.sessionID = sessionID;
-                    TrackMeApplication.getInstance().getAppDatabase().userDao().insertAll(_location);
+                    TrackMeApplication.getInstance().getAppDatabase().locationDao().insertAll(_location);
                 }
             }
         });
