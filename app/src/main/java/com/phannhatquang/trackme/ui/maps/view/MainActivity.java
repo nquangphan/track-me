@@ -144,8 +144,9 @@ public class MainActivity extends AppCompatActivity {
                 TrackMeApplication.getInstance()
                         .getAppDatabase().sessionDAO().delete(session);
             }
-            sessions = TrackMeApplication.getInstance()
-                    .getAppDatabase().sessionDAO().getAll();
+            sessions.clear();
+            sessions.addAll(TrackMeApplication.getInstance()
+                    .getAppDatabase().sessionDAO().getAll());
             return null;
         }
 

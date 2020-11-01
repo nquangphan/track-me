@@ -1,6 +1,7 @@
 package com.phannhatquang.trackme.ui.maps.view;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
@@ -9,6 +10,7 @@ import android.Manifest;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
@@ -129,8 +131,10 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         public void onServiceConnected(ComponentName name, IBinder service) {
             LocationUpdatesService_.LocalBinder binder = (LocationUpdatesService_.LocalBinder) service;
             mService = binder.getService();
-            if(isStartNewSession) {
+            if (isStartNewSession) {
                 mService.requestLocationUpdates(true);
+            } else {
+                mService.requestLocationUpdates();
             }
 
             mBound = true;
@@ -225,6 +229,31 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         }
         _clearMap();
         setupButtonState();
+    }
+
+    @Override
+    public void onBackPressed() {
+//        super.onBackPressed();
+        if (mSharePref.currentState().getOr(-1) == AppState.RUNNING) {
+            new AlertDialog.Builder(this)
+                    .setTitle("Confirm")
+                    .setMessage("Are you sure you want finish this session?")
+                    // Specifying a listener allows you to take an action before dismissing the dialog.
+                    // The dialog is automatically dismissed when a dialog button is clicked.
+                    .setPositiveButton(android.R.string.yes, new DialogInterface.OnClickListener() {
+                        public void onClick(DialogInterface dialog, int which) {
+                            onButtonPauseClick();
+                            finish();
+                        }
+                    })
+
+                    // A null listener allows the button to dismiss the dialog and take no further action.
+                    .setNegativeButton(android.R.string.no, null)
+                    .setIcon(android.R.drawable.ic_dialog_alert)
+                    .show();
+        } else {
+            finish();
+        }
     }
 
     private void _setTimerUI(long timer) {
@@ -367,9 +396,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 if (mSharePref.currentState().getOr(0) == AppState.RUNNING) {
                     _listLocation.add(_myLocation);
                 }
-
+                mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(_myLocation, 19));
                 if (_listLocation.size() == 1) {
-                    mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(_myLocation, 19));
+
                     if (mSharePref.currentState().getOr(0) == AppState.RUNNING) {
                         mMap.addMarker(new MarkerOptions()
                                 .position(_listLocation.get(0)).title("Start"));
@@ -503,6 +532,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
         mSharePref.currentState().put(AppState.IDLE);
         _enableStartButton();
         _clearMap();
+        finish();
     }
 
     @Click(R.id.btnPause)
@@ -523,7 +553,8 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                         .getAppDatabase().sessionDAO().insertAll(session);
             }
         });
-
+        mMap.addMarker(new MarkerOptions()
+                .position(_listLocation.get(_listLocation.size() - 1)).title("End"));
         _enablePauseSession();
     }
 
