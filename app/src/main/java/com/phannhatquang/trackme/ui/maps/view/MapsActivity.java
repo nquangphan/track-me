@@ -393,9 +393,9 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                 Toast.makeText(MapsActivity.this, Utils.getLocationText(location),
                         Toast.LENGTH_SHORT).show();
                 LatLng _myLocation = new LatLng(location.getLatitude(), location.getLongitude());
-                if (mSharePref.currentState().getOr(0) == AppState.RUNNING) {
+//                if (mSharePref.currentState().getOr(0) == AppState.RUNNING) {
                     _listLocation.add(_myLocation);
-                }
+//                }
                 mMap.moveCamera(CameraUpdateFactory.newLatLngZoom(_myLocation, 19));
                 if (_listLocation.size() == 1) {
 
@@ -404,6 +404,7 @@ public class MapsActivity extends AppCompatActivity implements OnMapReadyCallbac
                                 .position(_listLocation.get(0)).title("Start"));
                     } else {
                         mService.removeLocationUpdates();
+                        _listLocation.clear();
                     }
                 } else {
                     if (_listLocation.size() > 0) {
